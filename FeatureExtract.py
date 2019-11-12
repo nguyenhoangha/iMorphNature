@@ -7,6 +7,8 @@ Created on Wed Dec  5 12:23:26 2018
 
 import cv2
 import numpy as np
+from skimage.transform import integral_image
+from sklearn.preprocessing import normalize
 #from skimage.feature import haar_like_feature
 
 # function for rescale original images in different scales
@@ -104,20 +106,91 @@ def computeUnsignedGaussianSUB(listImgs, listPoints, gausSigma, Ng):
     return GAUSSSUBFeature
 
 # compute the HAAR-LIKE descriptors
-def computeHAARLIKE(listImgs, listPoints, Ng):
-    print(listImgs[0].shape[0],listImgs[0].shape[1])
-    print(listImgs[1].shape[0],listImgs[1].shape[1])
-    print(listImgs[2].shape[0],listImgs[2].shape[1])
-    print(listImgs[3].shape[0],listImgs[3].shape[1])
-    print(listImgs[4].shape[0],listImgs[4].shape[1])
-    
+# Nh HAAR-LIKE features of random size and position are extracted inside each of the D windows, leading to Nh x D features
+# the 4-type is used
+def computeHAARLIKE(listImgs, listPoints, W, Nh, maxSizeHAAR):
+    HAARFeature = []
+    for i in range(len(listImgs)):
+        # compute the integral image
+        ii = integral_image(listImgs[i])
+        for j in range(Nh):
+            # generate the position of the random
+            x = np.random.randint(-W,W) + listPoints[i][0]
+            y = np.random.randint(-W,W) + listPoints[i][1]
+            size = np.random.randint(0,maxSizeHAAR)
+            # calculate the 4-type 
+            HAARFeature.append(2*ii[y,x+size]+2*ii[y-size,x] + 2*ii[y+size,x]+2*ii[y,x-size] - ii[y-size,x+size] - 4*ii[y,x] - ii[y+size,x-size] - ii[y+size,x+size]-ii[y-size,x-size])                
+    return HAARFeature
 
-# Dau vao diem: x: chieu ngang, y: chieu doc
+def computeFeatureList(imageFile,posFile, negFile, feature, NoScale, W, posFeatureFile, negFeatureFile, Nh = 8, gausSigma = 1.0, Ng = 10, maxSizeHAAR = 10):
+    # rescale image
+    listImgs = RescaleImage(imageFile,NoScale)
+    # read positive point and negative point
+    posF = open(posFile,"r")
+    negF = open(negFile,"r")
+    posFeatureF = open(posFeatureFile,"w")
+    negFeatureF = open(negFeatureFile,"w")
+    
+    # for each positive point, calculate feature
+    for line in posF:
+        x,y = list(map(int,line.split()))
+        listPoints = RescalePoint(x,y,NoScale)
+        if (feature == "RAW"):
+            des = computeRAW(listImgs,listPoints,W)
+        elif (feature == "SSUB"):
+            des = computeSignedSUB(listImgs, listPoints, W)
+        elif (feature == "USUB"):
+            des = computeUnsignedSUB(listImgs, listPoints, W)
+        elif (feature == "GSUB"):
+            des = computeGaussianSUB(listImgs, listPoints, gausSigma, Ng)
+        elif (feature == "UGSUB"):
+            des = computeUnsignedGaussianSUB(listImgs, listPoints, gausSigma, Ng)
+        elif (feature == "HAAR"):
+            des = computeHAARLIKE(listImgs, listPoints, W, Nh,maxSizeHAAR)
+        mu = np.mean(des)
+        std = np.std(des)
+        des = (des - mu)/std
+        for i in range(len(des)):
+            posFeatureF.write(str(des[i]) + " ")
+        posFeatureF.writelines("\n")  
+    
+    # for each negative point, calculate feature
+    for line in negF:
+        x,y = list(map(int,line.split()))
+        listPoints = RescalePoint(x,y,NoScale)
+        if (feature == "RAW"):
+            des = computeRAW(listImgs,listPoints,W)
+        mu = np.mean(des)
+        std = np.std(des)
+        des = (des - mu)/std
+        for i in range(len(des)):
+            negFeatureF.write(str(des[i]) + " ")
+        negFeatureF.writelines("\n")  
+        
+
+# Dau vao diem: x: chieu ngang, y: chieu doc; shape[0]: chieu cao, shape[1]: chieu rong; img[y,x]
 inputF = "C:/PhuongLH/ICTLab/Imorph/Code/001.bmp"
 D = 5 # number of scale
 W = 8 # window size is 2W+1
+Nh = 8
 
-listImgs = RescaleImage(inputF,D)
-listPoints = RescalePoint(1256,227,D)
-w = computeRAW(listImgs, listPoints, W)
-print(w)
+imageFile = "C:/PhuongLH/ICTLab/Imorph/Data/Image_TPS/egfr_F_R_oly_2X_1.tif"
+negFile = "C:/PhuongLH/ICTLab/Imorph/Code/Land_Mark_9/egfr_F_R_oly_2X_1_neg.txt"
+posFile = "C:/PhuongLH/ICTLab/Imorph/Code/Land_Mark_9/egfr_F_R_oly_2X_1_pos.txt"
+posFeatureFile = "C:/PhuongLH/ICTLab/Imorph/Code/Land_Mark_9_RAW/egfr_F_R_oly_2X_1_scale_5_W_8_pos.txt"
+negFeatureFile = "C:/PhuongLH/ICTLab/Imorph/Code/Land_Mark_9_RAW/egfr_F_R_oly_2X_1_scale_5_W_8_neg.txt"
+#computeFeatureList(imageFile,posFile,negFile,"RAW",D,W,posFeatureFile,negFeatureFile)
+#computeFeatureList(imageFile,posFile,negFile,"SSUB",D,W,posFeatureFile,negFeatureFile)
+#computeFeatureList(imageFile,posFile,negFile,"USUB",D,W,posFeatureFile,negFeatureFile)
+#computeFeatureList(imageFile,posFile,negFile,"GSUB",D,W,posFeatureFile,negFeatureFile)
+#computeFeatureList(imageFile,posFile,negFile,"UGSUB",D,W,posFeatureFile,negFeatureFile)
+computeFeatureList(imageFile,posFile,negFile,"HAAR",D,W,posFeatureFile,negFeatureFile,Nh)
+
+# HOG, BRISK, GLOH
+
+#listImgs = RescaleImage(inputF,D)
+#listPoints = RescalePoint(1256,227,D)
+#print(listImgs[0][899,1439])
+#w = computeRAW(listImgs, listPoints, W)
+#w = computeHAARLIKE(listImgs,listPoints,Nh,5)
+#print(w)
