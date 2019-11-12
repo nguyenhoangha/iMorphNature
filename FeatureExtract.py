@@ -122,7 +122,7 @@ def computeHAARLIKE(listImgs, listPoints, W, Nh, maxSizeHAAR):
             HAARFeature.append(2*ii[y,x+size]+2*ii[y-size,x] + 2*ii[y+size,x]+2*ii[y,x-size] - ii[y-size,x+size] - 4*ii[y,x] - ii[y+size,x-size] - ii[y+size,x+size]-ii[y-size,x-size])                
     return HAARFeature
 
-def computeFeatureList(imageFile,posFile, negFile, feature, NoScale, W, posFeatureFile, negFeatureFile, Nh = 8, gausSigma = 1.0, Ng = 10, maxSizeHAAR = 10):
+def computeFeatureList(imageFile,posFile, negFile, feature, NoScale, W, posFeatureFile, negFeatureFile, Nh = 8, gausSigma = 1.0, Ng = 10, maxSizeHAAR = 5):
     # rescale image
     listImgs = RescaleImage(imageFile,NoScale)
     # read positive point and negative point
@@ -192,5 +192,4 @@ computeFeatureList(imageFile,posFile,negFile,"HAAR",D,W,posFeatureFile,negFeatur
 #listPoints = RescalePoint(1256,227,D)
 #print(listImgs[0][899,1439])
 #w = computeRAW(listImgs, listPoints, W)
-#w = computeHAARLIKE(listImgs,listPoints,Nh,5)
 #print(w)
